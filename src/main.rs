@@ -1,9 +1,11 @@
 use std::fs::File;
 use std::io::BufReader;
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::error::Error;
 use std::process;
+
+use rocksdb::{DB, Options};
 
 fn example() -> Result<(), Box<Error>> {
 	// Build the CSV reader and iterate over each record.
@@ -14,14 +16,25 @@ fn example() -> Result<(), Box<Error>> {
 		.escape(Some(b'\\'))
 		.flexible(true)
 		.from_reader(BufReader::new(f));
-	let mut distinct: HashSet<String> = HashSet::new();
+	let mut distinct: HashMap<String, u64> = HashMap::new();
 	let mut count: u64 = 0;
 	for result in rdr.records() {
 		// The iterator yields Result<StringRecord, Error>, so we check the
 		// error here.
 		let r = result?.get(10).unwrap_or("").to_string();
-		distinct.insert(r);
+		let c = match distinct.get(&r) {
+			Some(count) => count +1,
+			None => 1
+		};
+		distinct.insert(r, c);
 		count += 1;
+	}
+	let dbPath = "/home/jp/code/csv/rocksdb";
+	{
+		let db = DB::open_default(dbPath)?;
+		for (word, count) in &distinct {
+			db.put(word.as_bytes(), count.to_le_bytes())?;
+		}
 	}
 	println!("{} out of {}", distinct.len(), count);
 	Ok(())
