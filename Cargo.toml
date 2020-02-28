@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 csv = "1"
 rocksdb = "0.12.2"
+rayon = "1.2.0"

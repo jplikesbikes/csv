@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::process;
 
-use rocksdb::{DB, Options};
+use rocksdb::{Options, DB};
 
 fn example() -> Result<(), Box<Error>> {
 	// Build the CSV reader and iterate over each record.
@@ -18,23 +18,23 @@ fn example() -> Result<(), Box<Error>> {
 		.from_reader(BufReader::new(f));
 	let mut distinct: HashMap<String, u64> = HashMap::new();
 	let mut count: u64 = 0;
-	for result in rdr.records() {
+	rdr.records().into_iter().for_each(|result| {
 		// The iterator yields Result<StringRecord, Error>, so we check the
 		// error here.
-		let r = result?.get(10).unwrap_or("").to_string();
+		let r = result.unwrap().get(10).unwrap_or("").to_string();
 		let c = match distinct.get(&r) {
-			Some(count) => count +1,
-			None => 1
+			Some(count) => count + 1,
+			None => 1,
 		};
 		distinct.insert(r, c);
 		count += 1;
-	}
+	});
 	let dbPath = "/home/jp/code/csv/rocksdb";
 	{
 		let db = DB::open_default(dbPath)?;
-		for (word, count) in &distinct {
-			db.put(word.as_bytes(), count.to_le_bytes())?;
-		}
+		distinct.iter().for_each(|(word, count)| {
+			db.put(word.as_bytes(), count.to_le_bytes()).unwrap();
+		});
 	}
 	println!("{} out of {}", distinct.len(), count);
 	Ok(())
